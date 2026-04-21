@@ -234,61 +234,10 @@
     <div class="section-label">Top rated</div>
     <div class="section-title">Trending in K-Beauty</div>
   </div>
-  <div class="products-grid">
-    <div class="product-card" onclick="openModalWithProduct('COSRX Advanced Snail 96 Mucin Power Essence')">
-      <div class="product-thumb" style="background:#fff5f8;">🧴</div>
-      <div class="product-body">
-        <div class="product-brand">COSRX</div>
-        <div class="product-name">Advanced Snail 96 Mucin Power Essence</div>
-        <div class="rating-row"><span class="stars">★★★★★</span><span class="rating-num">4.9</span><span class="review-cnt">(2,841)</span></div>
-        <div class="verified-tag">✓ All reviews verified</div>
-      </div>
-    </div>
-    <div class="product-card" onclick="openModalWithProduct('Some By Mi AHA BHA PHA 30 Days Miracle Toner')">
-      <div class="product-thumb" style="background:#f0fff5;">🌿</div>
-      <div class="product-body">
-        <div class="product-brand">Some By Mi</div>
-        <div class="product-name">AHA BHA PHA 30 Days Miracle Toner</div>
-        <div class="rating-row"><span class="stars">★★★★☆</span><span class="rating-num">4.6</span><span class="review-cnt">(1,290)</span></div>
-        <div class="verified-tag">✓ All reviews verified</div>
-      </div>
-    </div>
-    <div class="product-card" onclick="openModalWithProduct('Beauty of Joseon Revive Serum')">
-      <div class="product-thumb" style="background:#fffbf0;">✨</div>
-      <div class="product-body">
-        <div class="product-brand">Beauty of Joseon</div>
-        <div class="product-name">Revive Serum Ginseng + Snail Mucin</div>
-        <div class="rating-row"><span class="stars">★★★★★</span><span class="rating-num">4.8</span><span class="review-cnt">(3,102)</span></div>
-        <div class="verified-tag">✓ All reviews verified</div>
-      </div>
-    </div>
-    <div class="product-card" onclick="openModalWithProduct('Laneige Lip Sleeping Mask Berry')">
-      <div class="product-thumb" style="background:#f5f0ff;">💜</div>
-      <div class="product-body">
-        <div class="product-brand">Laneige</div>
-        <div class="product-name">Lip Sleeping Mask Berry</div>
-        <div class="rating-row"><span class="stars">★★★★★</span><span class="rating-num">4.9</span><span class="review-cnt">(5,770)</span></div>
-        <div class="verified-tag">✓ All reviews verified</div>
-      </div>
-    </div>
-    <div class="product-card" onclick="openModalWithProduct('Klairs Supple Preparation Unscented Toner')">
-      <div class="product-thumb" style="background:#f0f8ff;">💙</div>
-      <div class="product-body">
-        <div class="product-brand">Klairs</div>
-        <div class="product-name">Supple Preparation Unscented Toner</div>
-        <div class="rating-row"><span class="stars">★★★★☆</span><span class="rating-num">4.5</span><span class="review-cnt">(887)</span></div>
-        <div class="verified-tag">✓ All reviews verified</div>
-      </div>
-    </div>
-    <div class="product-card" onclick="openModalWithProduct('Innisfree Jeju Orchid Enriched Cream')">
-      <div class="product-thumb" style="background:#fff8f0;">🍊</div>
-      <div class="product-body">
-        <div class="product-brand">Innisfree</div>
-        <div class="product-name">Jeju Orchid Enriched Cream</div>
-        <div class="rating-row"><span class="stars">★★★★☆</span><span class="rating-num">4.4</span><span class="review-cnt">(1,043)</span></div>
-        <div class="verified-tag">✓ All reviews verified</div>
-      </div>
-    </div>
+  <div style="text-align:center; padding: 32px 0 16px;">
+    <p style="font-size:15px;color:var(--text-muted);margin-bottom:6px;">No products rated yet — yours could be first! 💄</p>
+    <p style="font-size:13px;color:var(--text-faint);margin-bottom:20px;">Review a K-beauty product you've tried and it'll show up here.</p>
+    <button class="btn btn-primary" onclick="openModal()">Review a product</button>
   </div>
 </section>
 
@@ -297,9 +246,12 @@
     <div class="section-label">Community</div>
     <div class="section-title">Latest verified reviews</div>
   </div>
-  <div class="reviews-grid" id="reviewsGrid">
-    <div class="no-reviews">Loading reviews...</div>
+  <div id="reviewsCta" style="text-align:center;padding:32px 0 16px;">
+    <p style="font-size:15px;color:var(--text-muted);margin-bottom:6px;">No reviews yet — be the first! 🌸</p>
+    <p style="font-size:13px;color:var(--text-faint);margin-bottom:20px;">Share your honest K-beauty experience and help others find products that actually work.</p>
+    <button class="btn btn-primary" onclick="openModal()">Be the first to review</button>
   </div>
+  <div class="reviews-grid" id="reviewsGrid" style="display:none;"></div>
 </section>
 
 <section class="cta-section">
@@ -582,12 +534,16 @@
   function renderReviews(data) {
     const grid = document.getElementById('reviewsGrid');
     const countEl = document.getElementById('totalReviews');
+    const cta = document.getElementById('reviewsCta');
 
     if (!data || data.length === 0) {
-      grid.innerHTML = '<div class="no-reviews">No reviews yet — be the first to review a K-beauty product!</div>';
+      grid.style.display = 'none';
+      cta.style.display = 'block';
       countEl.textContent = '0';
       return;
     }
+    cta.style.display = 'none';
+    grid.style.display = 'grid';
 
     countEl.textContent = data.length.toLocaleString();
     grid.innerHTML = data.map((r, i) => {
