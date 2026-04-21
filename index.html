@@ -234,10 +234,12 @@
     <div class="section-label">Top rated</div>
     <div class="section-title">Trending in K-Beauty</div>
   </div>
-  <div style="text-align:center; padding: 32px 0 16px;">
-    <p style="font-size:15px;color:var(--text-muted);margin-bottom:6px;">No products rated yet — yours could be first! 💄</p>
-    <p style="font-size:13px;color:var(--text-faint);margin-bottom:20px;">Review a K-beauty product you've tried and it'll show up here.</p>
-    <button class="btn btn-primary" onclick="openModal()">Review a product</button>
+  <div id="trendingContent">
+    <div style="text-align:center;padding:32px 0 16px;">
+      <p style="font-size:15px;color:var(--text-muted);margin-bottom:6px;">No products rated yet — yours could be first! 💄</p>
+      <p style="font-size:13px;color:var(--text-faint);margin-bottom:20px;">Review a K-beauty product you've tried and it'll show up here.</p>
+      <button class="btn btn-primary" onclick="openModal()">Review a product</button>
+    </div>
   </div>
 </section>
 
@@ -572,11 +574,46 @@
 
     allReviews = data || [];
     renderReviews(allReviews);
+    renderTrending(allReviews);
   }
 
   const PAGE_SIZE = 12;
   let currentPage = 1;
   let filteredReviews = [];
+
+  function renderTrending(reviews) {
+    const box = document.getElementById('trendingContent');
+    if (!reviews || reviews.length === 0) return;
+
+    // 제품별로 좋아요 합산
+    const products = {};
+    reviews.forEach(r => {
+      const key = r.product_name;
+      if (!products[key]) products[key] = { name: key, likes: 0, count: 0, rating: 0 };
+      products[key].likes += (r.likes || 0);
+      products[key].count += 1;
+      products[key].rating += r.rating;
+    });
+
+    const sorted = Object.values(products)
+      .map(p => ({ ...p, avg: (p.rating / p.count).toFixed(1) }))
+      .sort((a, b) => b.likes - a.likes)
+      .slice(0, 6);
+
+    if (sorted.length === 0) return;
+
+    box.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;">
+      ${sorted.map(p => `
+        <div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;" onclick="document.getElementById('searchInput').value='${p.name}';filterReviews();document.getElementById('reviews').scrollIntoView({behavior:'smooth'});">
+          <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px;line-height:1.3;">${p.name}</div>
+          <div style="font-size:12px;color:var(--text-faint);margin-bottom:8px;">${p.count} verified review${p.count > 1 ? 's' : ''}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="color:var(--amber);font-size:12px;">${'★'.repeat(Math.round(p.avg))}${'☆'.repeat(5-Math.round(p.avg))}</span>
+            <span style="font-size:12px;color:var(--pink);">♥ ${p.likes}</span>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  }
 
   function filterReviews() {
     const q = document.getElementById('searchInput').value.toLowerCase();
@@ -644,7 +681,10 @@
               ${r.skin_type ? `<span class="skin-tag">${r.skin_type}</span>` : ''}
               <span class="review-product">${r.product_name}</span>
             </div>
-            <div class="review-date">${formatDate(r.created_at)}</div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <button data-likes="${r.likes || 0}" onclick="toggleLike('${r.id}', '${r.reviewer_name}', this)" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text-faint);padding:0;font-family:var(--font-sans);">♡ ${r.likes || 0}</button>
+              <div class="review-date">${formatDate(r.created_at)}</div>
+            </div>
           </div>
         </div>`;
     }).join('');
@@ -673,6 +713,52 @@
     document.getElementById('reviews').scrollIntoView({ behavior: 'smooth' });
   }
 
+  // 브라우저 핑거프린트 생성 (조작 방지)
+  function getFingerprint() {
+    const key = 'rmkb_fp';
+    let fp = localStorage.getItem(key);
+    if (!fp) {
+      fp = 'fp_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+      localStorage.setItem(key, fp);
+    }
+    return fp;
+  }
+
+  async function toggleLike(reviewId, authorName, btn) {
+    const fp = getFingerprint();
+    const reviewerName = document.getElementById('reviewerName')?.value || '';
+
+    // 자기 리뷰에 좋아요 불가 (이름 기반)
+    if (authorName === reviewerName) {
+      alert("You can't like your own review!");
+      return;
+    }
+
+    // 이미 좋아요 했는지 확인
+    const { data: existing } = await db
+      .from('review_likes')
+      .select('id')
+      .eq('review_id', reviewId)
+      .eq('user_fingerprint', fp)
+      .maybeSingle();
+
+    if (existing) {
+      // 좋아요 취소
+      await db.from('review_likes').delete().eq('review_id', reviewId).eq('user_fingerprint', fp);
+      await db.from('reviews').update({ likes: (parseInt(btn.dataset.likes) - 1) }).eq('id', reviewId);
+      btn.dataset.likes = parseInt(btn.dataset.likes) - 1;
+      btn.innerHTML = `♡ ${btn.dataset.likes}`;
+      btn.style.color = 'var(--text-faint)';
+    } else {
+      // 좋아요 추가
+      await db.from('review_likes').insert([{ review_id: reviewId, user_fingerprint: fp }]);
+      await db.from('reviews').update({ likes: (parseInt(btn.dataset.likes) + 1) }).eq('id', reviewId);
+      btn.dataset.likes = parseInt(btn.dataset.likes) + 1;
+      btn.innerHTML = `♥ ${btn.dataset.likes}`;
+      btn.style.color = 'var(--pink)';
+    }
+  }
+
   // 실시간 구독 — 새 리뷰 즉시 반영
   db.channel('reviews-realtime')
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reviews' }, (payload) => {
@@ -688,3 +774,4 @@
 </style>
 </body>
 </html>
+
