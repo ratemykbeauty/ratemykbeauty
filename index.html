@@ -430,7 +430,8 @@
     status.textContent = '⏳ Uploading receipt...';
     status.style.color = 'var(--text-muted)';
 
-    const fileName = 'receipt_' + Date.now() + '_' + file.name.replace(/\s/g, '_');
+    const ext = file.name.split('.').pop().toLowerCase();
+    const fileName = 'receipt_' + Date.now() + '.' + ext;
     const { data, error } = await db.storage.from('receipts').upload(fileName, file);
 
     if (error) {
@@ -460,7 +461,8 @@
     status.textContent = '⏳ Uploading photo...';
     status.style.color = 'var(--text-muted)';
 
-    const fileName = 'product_' + Date.now() + '_' + file.name.replace(/\s/g, '_');
+    const ext = file.name.split('.').pop().toLowerCase();
+    const fileName = 'product_' + Date.now() + '.' + ext;
     const { data, error } = await db.storage.from('receipts').upload(fileName, file);
 
     if (error) {
