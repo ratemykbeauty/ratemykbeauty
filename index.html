@@ -246,12 +246,31 @@
     <div class="section-label">Community</div>
     <div class="section-title">Latest verified reviews</div>
   </div>
+  <div style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+    <input type="text" id="searchInput" class="form-input" placeholder="Search by product, brand, or keyword..." style="flex:1;min-width:200px;" oninput="filterReviews()">
+    <select id="filterSkin" class="form-select" style="width:140px;" onchange="filterReviews()">
+      <option value="">All skin types</option>
+      <option>Oily</option>
+      <option>Dry</option>
+      <option>Combination</option>
+      <option>Sensitive</option>
+      <option>Normal</option>
+    </select>
+    <select id="filterRating" class="form-select" style="width:130px;" onchange="filterReviews()">
+      <option value="">All ratings</option>
+      <option value="5">★★★★★ only</option>
+      <option value="4">★★★★ & up</option>
+      <option value="3">★★★ & up</option>
+    </select>
+  </div>
+  <div id="searchEmpty" style="display:none;text-align:center;padding:32px;color:var(--text-muted);font-size:14px;">No reviews found for that search.</div>
   <div id="reviewsCta" style="text-align:center;padding:32px 0 16px;">
     <p style="font-size:15px;color:var(--text-muted);margin-bottom:6px;">No reviews yet — be the first! 🌸</p>
     <p style="font-size:13px;color:var(--text-faint);margin-bottom:20px;">Share your honest K-beauty experience and help others find products that actually work.</p>
     <button class="btn btn-primary" onclick="openModal()">Be the first to review</button>
   </div>
   <div class="reviews-grid" id="reviewsGrid" style="display:none;"></div>
+  <div id="paginationBar" style="margin-top:32px;"></div>
 </section>
 
 <section class="cta-section">
@@ -532,24 +551,83 @@
   let allReviews = [];
 
   function renderReviews(data) {
-    const grid = document.getElementById('reviewsGrid');
-    const countEl = document.getElementById('totalReviews');
-    const cta = document.getElementById('reviewsCta');
+    filteredReviews = data || [];
+    renderPage();
+  }
 
-    if (!data || data.length === 0) {
-      grid.style.display = 'none';
-      cta.style.display = 'block';
-      countEl.textContent = '0';
+  async function loadReviews() {
+    const grid = document.getElementById('reviewsGrid');
+    grid.innerHTML = '<div class="no-reviews">Loading reviews...</div>';
+
+    const { data, error } = await db
+      .from('reviews')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    if (error) {
+      grid.innerHTML = '<div class="no-reviews">Could not load reviews.</div>';
       return;
     }
+
+    allReviews = data || [];
+    renderReviews(allReviews);
+  }
+
+  const PAGE_SIZE = 12;
+  let currentPage = 1;
+  let filteredReviews = [];
+
+  function filterReviews() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    const skin = document.getElementById('filterSkin').value;
+    const rating = parseInt(document.getElementById('filterRating').value) || 0;
+
+    filteredReviews = allReviews.filter(r => {
+      const matchQ = !q || r.product_name.toLowerCase().includes(q) || r.review_text.toLowerCase().includes(q) || r.reviewer_name.toLowerCase().includes(q);
+      const matchSkin = !skin || r.skin_type === skin;
+      const matchRating = !rating || r.rating >= rating;
+      return matchQ && matchSkin && matchRating;
+    });
+
+    currentPage = 1;
+    renderPage();
+  }
+
+  function renderPage() {
+    const grid = document.getElementById('reviewsGrid');
+    const cta = document.getElementById('reviewsCta');
+    const countEl = document.getElementById('totalReviews');
+    const empty = document.getElementById('searchEmpty');
+
+    countEl.textContent = allReviews.length.toLocaleString();
+
+    if (allReviews.length === 0) {
+      grid.style.display = 'none';
+      cta.style.display = 'block';
+      empty.style.display = 'none';
+      return;
+    }
+
     cta.style.display = 'none';
+
+    if (filteredReviews.length === 0) {
+      grid.style.display = 'none';
+      empty.style.display = 'block';
+      document.getElementById('paginationBar').innerHTML = '';
+      return;
+    }
+
+    empty.style.display = 'none';
     grid.style.display = 'grid';
 
-    countEl.textContent = data.length.toLocaleString();
-    grid.innerHTML = data.map((r, i) => {
-      const c = avatarColors[i % avatarColors.length];
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const paged = filteredReviews.slice(start, start + PAGE_SIZE);
+
+    grid.innerHTML = paged.map((r, i) => {
+      const c = avatarColors[(start + i) % avatarColors.length];
       return `
-        <div class="review-card" id="review-${r.id}" style="animation: fadeIn 0.4s ease both;">
+        <div class="review-card" style="animation: fadeIn 0.4s ease both;">
           <div class="review-header">
             <div class="avatar" style="background:${c.bg};color:${c.color};">${initials(r.reviewer_name)}</div>
             <div style="flex:1;">
@@ -570,25 +648,29 @@
           </div>
         </div>`;
     }).join('');
+
+    // Pagination
+    const totalPages = Math.ceil(filteredReviews.length / PAGE_SIZE);
+    const bar = document.getElementById('paginationBar');
+    if (totalPages <= 1) { bar.innerHTML = ''; return; }
+
+    let pages = '';
+    for (let p = 1; p <= totalPages; p++) {
+      pages += `<button onclick="goPage(${p})" style="width:34px;height:34px;border-radius:50%;border:1px solid ${p === currentPage ? 'var(--pink)' : 'var(--border)'};background:${p === currentPage ? 'var(--pink)' : 'transparent'};color:${p === currentPage ? 'white' : 'var(--text-muted)'};cursor:pointer;font-size:13px;font-family:var(--font-sans);">${p}</button>`;
+    }
+    bar.innerHTML = `<div style="display:flex;gap:6px;justify-content:center;align-items:center;flex-wrap:wrap;">
+      <button onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} style="padding:6px 14px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:13px;">← Prev</button>
+      ${pages}
+      <button onclick="goPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} style="padding:6px 14px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;font-size:13px;">Next →</button>
+    </div>`;
   }
 
-  async function loadReviews() {
-    const grid = document.getElementById('reviewsGrid');
-    grid.innerHTML = '<div class="no-reviews">Loading reviews...</div>';
-
-    const { data, error } = await db
-      .from('reviews')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (error) {
-      grid.innerHTML = '<div class="no-reviews">Could not load reviews.</div>';
-      return;
-    }
-
-    allReviews = data || [];
-    renderReviews(allReviews);
+  function goPage(p) {
+    const totalPages = Math.ceil(filteredReviews.length / PAGE_SIZE);
+    if (p < 1 || p > totalPages) return;
+    currentPage = p;
+    renderPage();
+    document.getElementById('reviews').scrollIntoView({ behavior: 'smooth' });
   }
 
   // 실시간 구독 — 새 리뷰 즉시 반영
