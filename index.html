@@ -343,6 +343,38 @@
     </div>
 
     <div class="form-group">
+      <label class="form-label">Brand</label>
+      <select class="form-select" id="brandName">
+        <option value="">Select brand...</option>
+        <option>COSRX</option>
+        <option>Beauty of Joseon</option>
+        <option>Some By Mi</option>
+        <option>Laneige</option>
+        <option>Innisfree</option>
+        <option>Klairs</option>
+        <option>Torriden</option>
+        <option>Anua</option>
+        <option>Numbuzin</option>
+        <option>Skin1004</option>
+        <option>Purito</option>
+        <option>Isntree</option>
+        <option>Haruharu Wonder</option>
+        <option>Round Lab</option>
+        <option>Medicube</option>
+        <option>Dr.Jart+</option>
+        <option>Sulwhasoo</option>
+        <option>Etude House</option>
+        <option>Missha</option>
+        <option>The Face Shop</option>
+        <option>Nature Republic</option>
+        <option>Tony Moly</option>
+        <option>Holika Holika</option>
+        <option>A'pieu</option>
+        <option>Other</option>
+      </select>
+    </div>
+
+    <div class="form-group">
       <label class="form-label">Your rating</label>
       <div class="star-select" id="starSelect">
         <button class="star-btn" onclick="setRating(1)">★</button>
@@ -466,6 +498,7 @@
   function closeModal() {
     document.getElementById('reviewModal').classList.remove('open');
     document.body.style.overflow = '';
+    document.getElementById('brandName').value = '';
     uploadedImageUrl = null;
     uploadedProductPhotoUrl = null;
     receiptVerified = false;
@@ -504,6 +537,7 @@
     const { error } = await db.from('reviews').insert([{
       reviewer_name: name,
       product_name: product,
+      brand: document.getElementById('brandName').value,
       retailer: retailer,
       skin_type: skin,
       rating: currentRating,
