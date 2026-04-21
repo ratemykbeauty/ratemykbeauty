@@ -334,6 +334,7 @@
         <p style="font-size:11px;opacity:0.6;margin-top:4px;">Amazon, Yesstyle, Sephora, Target, etc.</p>
         <input type="file" id="receiptInput" accept="image/*,.pdf" style="display:none" onchange="handleUpload(this)">
       </div>
+      <img id="receiptPreview" src="" alt="Receipt preview" style="display:none;width:100%;border-radius:8px;margin-top:10px;border:1px solid var(--border);">
       <div id="uploadStatus" style="font-size:12px;color:var(--green-dark);margin-top:6px;display:none;"></div>
     </div>
 
@@ -404,18 +405,36 @@
     });
   }
 
-  function handleUpload(input) {
-    if (input.files && input.files[0]) {
-      const status = document.getElementById('uploadStatus');
-      status.style.display = 'block';
-      status.textContent = '⏳ Verifying receipt...';
-      status.style.color = 'var(--text-muted)';
-      setTimeout(() => {
-        receiptVerified = true;
-        status.textContent = '✓ Purchase verified! You can now submit your review.';
-        status.style.color = 'var(--green-dark)';
-      }, 1800);
+  let uploadedImageUrl = null;
+
+  async function handleUpload(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const status = document.getElementById('uploadStatus');
+    const preview = document.getElementById('receiptPreview');
+
+    status.style.display = 'block';
+    status.textContent = '⏳ Uploading receipt...';
+    status.style.color = 'var(--text-muted)';
+
+    const fileName = 'receipt_' + Date.now() + '_' + file.name.replace(/\s/g, '_');
+    const { data, error } = await db.storage.from('receipts').upload(fileName, file);
+
+    if (error) {
+      status.textContent = '✗ Upload failed. Please try again.';
+      status.style.color = 'var(--pink)';
+      return;
     }
+
+    const { data: urlData } = db.storage.from('receipts').getPublicUrl(fileName);
+    uploadedImageUrl = urlData.publicUrl;
+
+    receiptVerified = true;
+    status.textContent = '✓ Purchase verified! You can now submit your review.';
+    status.style.color = 'var(--green-dark)';
+
+    preview.src = uploadedImageUrl;
+    preview.style.display = 'block';
   }
 
   function openModal() {
@@ -431,6 +450,11 @@
   function closeModal() {
     document.getElementById('reviewModal').classList.remove('open');
     document.body.style.overflow = '';
+    uploadedImageUrl = null;
+    receiptVerified = false;
+    document.getElementById('receiptPreview').style.display = 'none';
+    document.getElementById('receiptPreview').src = '';
+    document.getElementById('uploadStatus').style.display = 'none';
   }
 
   document.getElementById('reviewModal').addEventListener('click', function(e) {
@@ -464,7 +488,8 @@
       skin_type: skin,
       rating: currentRating,
       review_text: text,
-      verified: true
+      verified: true,
+      receipt_url: uploadedImageUrl
     }]);
 
     if (error) {
@@ -530,6 +555,7 @@
             <div class="review-stars">${starsHTML(r.rating)}</div>
           </div>
           <div class="review-text">${r.review_text}</div>
+          ${r.receipt_url ? `<img src="${r.receipt_url}" alt="Receipt" style="width:100%;border-radius:8px;margin-bottom:10px;border:1px solid var(--border);max-height:180px;object-fit:cover;cursor:pointer;" onclick="window.open('${r.receipt_url}','_blank')">` : ''}
           <div class="review-footer">
             <div>
               ${r.skin_type ? `<span class="skin-tag">${r.skin_type}</span>` : ''}
