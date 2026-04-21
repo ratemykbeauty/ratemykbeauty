@@ -339,6 +339,18 @@
     </div>
 
     <div class="form-group">
+      <label class="form-label">Product photo <span style="color:var(--text-faint);font-weight:400;">(optional but recommended)</span></label>
+      <div class="upload-area" style="background:#f5f5f5;border-color:#ddd;" onclick="document.getElementById('productPhotoInput').click()">
+        <div style="font-size:24px;">📸</div>
+        <p style="color:var(--text-muted);">Click to upload a photo of your product</p>
+        <p style="font-size:11px;opacity:0.5;margin-top:4px;">Helps others see the real product</p>
+        <input type="file" id="productPhotoInput" accept="image/*" style="display:none" onchange="handleProductPhoto(this)">
+      </div>
+      <img id="productPhotoPreview" src="" alt="Product preview" style="display:none;width:100%;border-radius:8px;margin-top:10px;border:1px solid var(--border);">
+      <div id="productPhotoStatus" style="font-size:12px;margin-top:6px;display:none;"></div>
+    </div>
+
+    <div class="form-group">
       <label class="form-label">Retailer</label>
       <select class="form-select" id="retailer">
         <option value="">Select retailer...</option>
@@ -406,6 +418,7 @@
   }
 
   let uploadedImageUrl = null;
+  let uploadedProductPhotoUrl = null;
 
   async function handleUpload(input) {
     if (!input.files || !input.files[0]) return;
@@ -437,6 +450,34 @@
     preview.style.display = 'block';
   }
 
+  async function handleProductPhoto(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const status = document.getElementById('productPhotoStatus');
+    const preview = document.getElementById('productPhotoPreview');
+
+    status.style.display = 'block';
+    status.textContent = '⏳ Uploading photo...';
+    status.style.color = 'var(--text-muted)';
+
+    const fileName = 'product_' + Date.now() + '_' + file.name.replace(/\s/g, '_');
+    const { data, error } = await db.storage.from('receipts').upload(fileName, file);
+
+    if (error) {
+      status.textContent = '✗ Upload failed. Please try again.';
+      status.style.color = 'var(--pink)';
+      return;
+    }
+
+    const { data: urlData } = db.storage.from('receipts').getPublicUrl(fileName);
+    uploadedProductPhotoUrl = urlData.publicUrl;
+
+    status.textContent = '✓ Product photo uploaded!';
+    status.style.color = 'var(--green-dark)';
+    preview.src = uploadedProductPhotoUrl;
+    preview.style.display = 'block';
+  }
+
   function openModal() {
     document.getElementById('reviewModal').classList.add('open');
     document.body.style.overflow = 'hidden';
@@ -451,10 +492,14 @@
     document.getElementById('reviewModal').classList.remove('open');
     document.body.style.overflow = '';
     uploadedImageUrl = null;
+    uploadedProductPhotoUrl = null;
     receiptVerified = false;
     document.getElementById('receiptPreview').style.display = 'none';
     document.getElementById('receiptPreview').src = '';
     document.getElementById('uploadStatus').style.display = 'none';
+    document.getElementById('productPhotoPreview').style.display = 'none';
+    document.getElementById('productPhotoPreview').src = '';
+    document.getElementById('productPhotoStatus').style.display = 'none';
   }
 
   document.getElementById('reviewModal').addEventListener('click', function(e) {
@@ -489,7 +534,8 @@
       rating: currentRating,
       review_text: text,
       verified: true,
-      receipt_url: uploadedImageUrl
+      receipt_url: uploadedImageUrl,
+      product_photo_url: uploadedProductPhotoUrl
     }]);
 
     if (error) {
@@ -555,7 +601,8 @@
             <div class="review-stars">${starsHTML(r.rating)}</div>
           </div>
           <div class="review-text">${r.review_text}</div>
-          ${r.receipt_url ? `<img src="${r.receipt_url}" alt="Receipt" style="width:100%;border-radius:8px;margin-bottom:10px;border:1px solid var(--border);max-height:180px;object-fit:cover;cursor:pointer;" onclick="window.open('${r.receipt_url}','_blank')">` : ''}
+          ${r.product_photo_url ? `<img src="${r.product_photo_url}" alt="Product photo" style="width:100%;border-radius:8px;margin-bottom:8px;border:1px solid var(--border);max-height:200px;object-fit:cover;cursor:pointer;" onclick="window.open('${r.product_photo_url}','_blank')">` : ''}
+          ${r.receipt_url ? `<details style="margin-bottom:10px;"><summary style="font-size:11px;color:var(--text-faint);cursor:pointer;">✓ View receipt</summary><img src="${r.receipt_url}" alt="Receipt" style="width:100%;border-radius:8px;margin-top:6px;border:1px solid var(--border);max-height:160px;object-fit:cover;cursor:pointer;" onclick="window.open('${r.receipt_url}','_blank')"></details>` : ''}
           <div class="review-footer">
             <div>
               ${r.skin_type ? `<span class="skin-tag">${r.skin_type}</span>` : ''}
