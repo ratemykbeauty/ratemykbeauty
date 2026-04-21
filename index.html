@@ -778,19 +778,25 @@
       .eq('user_fingerprint', fp)
       .maybeSingle();
 
+    // 현재 DB likes 값 먼저 가져오기
+    const { data: reviewData } = await db.from('reviews').select('likes').eq('id', reviewId).single();
+    const currentLikes = Math.max(0, parseInt(reviewData?.likes) || 0);
+
     if (existing) {
       // 좋아요 취소
       await db.from('review_likes').delete().eq('review_id', reviewId).eq('user_fingerprint', fp);
-      await db.from('reviews').update({ likes: (parseInt(btn.dataset.likes) - 1) }).eq('id', reviewId);
-      btn.dataset.likes = parseInt(btn.dataset.likes) - 1;
-      btn.innerHTML = `♡ ${btn.dataset.likes}`;
+      const newLikes = Math.max(0, currentLikes - 1);
+      await db.from('reviews').update({ likes: newLikes }).eq('id', reviewId);
+      btn.dataset.likes = newLikes;
+      btn.innerHTML = `♡ ${newLikes}`;
       btn.style.color = 'var(--text-faint)';
     } else {
       // 좋아요 추가
       await db.from('review_likes').insert([{ review_id: reviewId, user_fingerprint: fp }]);
-      await db.from('reviews').update({ likes: (parseInt(btn.dataset.likes) + 1) }).eq('id', reviewId);
-      btn.dataset.likes = parseInt(btn.dataset.likes) + 1;
-      btn.innerHTML = `♥ ${btn.dataset.likes}`;
+      const newLikes = currentLikes + 1;
+      await db.from('reviews').update({ likes: newLikes }).eq('id', reviewId);
+      btn.dataset.likes = newLikes;
+      btn.innerHTML = `♥ ${newLikes}`;
       btn.style.color = 'var(--pink)';
     }
   }
